@@ -1,0 +1,29 @@
+#!/bin/bash
+# This is a simple build script and will be executed on your CI system if
+# available.  Otherwise it will execute while your application is stopped
+# before the deploy step.  This script gets executed directly, so it
+# could be python, php, ruby, etc.
+
+if [ ! -d $OPENSHIFT_DATA_DIR/uploads ]; then
+	mkdir $OPENSHIFT_DATA_DIR/uploads
+fi
+
+ln -sf $OPENSHIFT_DATA_DIR/uploads $OPENSHIFT_REPO_DIR/php/content/
+
+if [ ! -f $OPENSHIFT_DATA_DIR/htaccess ]; then
+	touch $OPENSHIFT_DATA_DIR/htaccess
+fi
+
+ln -sf $OPENSHIFT_DATA_DIR/htaccess $OPENSHIFT_REPO_DIR/php/.htaccess
+
+if [ ! -f $OPENSHIFT_DATA_DIR/secret-keys.php ]; then
+	curl -s https://api.wordpress.org/secret-key/1.1/salt/ > $OPENSHIFT_DATA_DIR/secret-keys.php
+fi
+
+sed -i -e '/#@+/,/#@-/ {
+	s/.*NONCE_SALT.*/{KEYS}/
+	/put\syour/d
+}' -e '/{KEYS}/ {
+	r '"$OPENSHIFT_DATA_DIR/secret-keys.php"'
+	d
+}' $OPENSHIFT_REPO_DIR/php/wp-config.php
